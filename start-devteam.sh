@@ -23,27 +23,37 @@ sleep 2
 # Start all agents
 echo ""
 echo "🤖 Starting AI Agents..."
-AGENT_ROLE=BACKEND python agents/run_agent.py > logs/backend.log 2>&1 &
+
+# Check if workspace is configured
+if [ -f "config/agent_workspace.json" ] && [ -d "$HOME/dev/agent-workspace/devteam" ]; then
+    echo "  📁 Using workspace-aware agents"
+    AGENT_SCRIPT="agents/run_agent_with_workspace.py"
+else
+    echo "  📦 Using standard agents"
+    AGENT_SCRIPT="agents/run_agent.py"
+fi
+
+AGENT_ROLE=BACKEND python $AGENT_SCRIPT > logs/backend.log 2>&1 &
 echo "  ✅ Backend agent started (port 8301)"
 sleep 1
 
-AGENT_ROLE=FRONTEND python agents/run_agent.py > logs/frontend.log 2>&1 &
+AGENT_ROLE=FRONTEND python $AGENT_SCRIPT > logs/frontend.log 2>&1 &
 echo "  ✅ Frontend agent started (port 8302)"
 sleep 1
 
-AGENT_ROLE=DATABASE python agents/run_agent.py > logs/database.log 2>&1 &
+AGENT_ROLE=DATABASE python $AGENT_SCRIPT > logs/database.log 2>&1 &
 echo "  ✅ Database agent started (port 8303)"
 sleep 1
 
-AGENT_ROLE=QA python agents/run_agent.py > logs/qa.log 2>&1 &
+AGENT_ROLE=QA python $AGENT_SCRIPT > logs/qa.log 2>&1 &
 echo "  ✅ QA agent started (port 8304)"
 sleep 1
 
-AGENT_ROLE=BA python agents/run_agent.py > logs/ba.log 2>&1 &
+AGENT_ROLE=BA python $AGENT_SCRIPT > logs/ba.log 2>&1 &
 echo "  ✅ BA agent started (port 8305)"
 sleep 1
 
-AGENT_ROLE=TEAMLEAD python agents/run_agent.py > logs/teamlead.log 2>&1 &
+AGENT_ROLE=TEAMLEAD python $AGENT_SCRIPT > logs/teamlead.log 2>&1 &
 echo "  ✅ Team Lead agent started (port 8306)"
 sleep 2
 
@@ -63,13 +73,12 @@ cd ../..
 echo "  ✅ Web frontend started (port 3000)"
 sleep 3
 
-# Start Telegram bot (if configured)
-if [ ! -z "$TELEGRAM_BOT_TOKEN" ]; then
-    echo ""
-    echo "📱 Starting Telegram Bot..."
-    python -m core.telegram_bridge > logs/telegram.log 2>&1 &
-    echo "  ✅ Telegram bot started"
-fi
+# Start Telegram bridge
+echo ""
+echo "📱 Starting Telegram Bridge..."
+python start_telegram_bridge.py > logs/telegram_bridge.log 2>&1 &
+echo "  ✅ Telegram bridge started"
+sleep 2
 
 # Check status
 echo ""

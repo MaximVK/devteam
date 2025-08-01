@@ -1,0 +1,56 @@
+{
+  "workspace": {
+    "base_path": "/Users/maxim/dev/agent-workspace/devteam",
+    "git_config": {
+      "user_name": "DevTeam Agents",
+      "user_email": "agents@devteam.local",
+      "default_branch": "main",
+      "branch_prefix": "agent/"
+    }
+  },
+  "agents": {
+    "backend": {
+      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "capabilities": ["create_files", "edit_files", "git_operations"],
+      "file_patterns": ["*.py", "*.json", "*.yaml", "*.toml"],
+      "excluded_paths": ["node_modules", ".git", "__pycache__"]
+    },
+    "frontend": {
+      "working_directory": "/Users/maxim/dev/agent-workspace/devteam/web/frontend",
+      "capabilities": ["create_files", "edit_files", "git_operations"],
+      "file_patterns": ["*.tsx", "*.ts", "*.jsx", "*.js", "*.css", "*.json"],
+      "excluded_paths": ["node_modules", ".git", "build", "dist"]
+    },
+    "database": {
+      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "capabilities": ["create_files", "edit_files"],
+      "file_patterns": ["*.sql", "*.py"],
+      "excluded_paths": ["node_modules", ".git"]
+    },
+    "qa": {
+      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "capabilities": ["create_files", "edit_files", "run_tests"],
+      "file_patterns": ["test_*.py", "*_test.py", "*.spec.ts", "*.test.tsx"],
+      "excluded_paths": ["node_modules", ".git"]
+    },
+    "ba": {
+      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "capabilities": ["create_files", "edit_files"],
+      "file_patterns": ["*.md", "*.txt", "*.json"],
+      "excluded_paths": ["node_modules", ".git"]
+    },
+    "teamlead": {
+      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "capabilities": ["create_files", "edit_files", "git_operations", "review_code"],
+      "file_patterns": ["*"],
+      "excluded_paths": ["node_modules", ".git"]
+    }
+  },
+  "git_workflow": {
+    "feature_branch_pattern": "agent/{role}/{task_id}",
+    "commit_message_template": "{task_title}\n\n{description}\n\nAgent: {role}\nTask ID: {task_id}",
+    "auto_push": true,
+    "create_pull_requests": true,
+    "pr_template": "## Summary\n\n{description}\n\n## Changes\n\n{changes}\n\n## Testing\n\n{test_plan}\n\n---\nCreated by {role} agent"
+  }
+}

@@ -57,6 +57,15 @@ AGENT_ROLE=TEAMLEAD python $AGENT_SCRIPT > logs/teamlead.log 2>&1 &
 echo "  ✅ Team Lead agent started (port 8306)"
 sleep 2
 
+# Start tool server (if using workspace-aware agents)
+if [ "$AGENT_SCRIPT" = "agents/run_agent_with_workspace.py" ]; then
+    echo ""
+    echo "🔧 Starting Tool Server..."
+    python tool_server.py > logs/tool_server.log 2>&1 &
+    echo "  ✅ Tool server started (port 8500)"
+    sleep 2
+fi
+
 # Start web backend
 echo ""
 echo "🌐 Starting Web Backend..."

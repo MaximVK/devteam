@@ -87,21 +87,52 @@ You have access to a git_helper object with these methods:
 - git_helper.get_branch_status() - Get detailed git status
 - git_helper.create_github_pr(branch_name, title, description, changes, test_plan, agent_role) - Create PR
 
+### Tool Server Access:
+You have access to a tool server at http://localhost:8500 that provides file system and git operations.
+
+Available endpoints (replace {role} with your role):
+- POST /tools/{role}/read_file - Read file content
+  Request: {{"path": "relative/path/to/file"}}
+  
+- POST /tools/{role}/write_file - Write file content  
+  Request: {{"path": "relative/path/to/file", "content": "file content"}}
+  
+- POST /tools/{role}/list_files - List directory contents
+  Request: {{"directory": "relative/path"}}
+  
+- POST /tools/{role}/search - Search in files
+  Request: {{"pattern": "search text", "file_pattern": "*.py"}}
+  
+- POST /tools/{role}/execute - Execute commands
+  Request: {{"command": "git status", "cwd": "."}}
+  
+- POST /tools/{role}/git/create_branch - Create feature branch
+  Request: {{"task_id": "123", "task_title": "implement feature"}}
+  
+- POST /tools/{role}/git/commit - Commit changes
+  Request: {{"title": "commit title", "description": "details", "task_id": "123"}}
+  
+- POST /tools/{role}/git/push - Push branch
+  Request: {{"branch_name": "agent/frontend/feature"}}
+  
+- POST /tools/{role}/git/status - Get git status
+  Request: {{}}
+
 ### Task Workflow:
 When users ask you to make changes, follow this workflow:
-1. Create a feature branch for the task using git_helper.create_feature_branch()
-2. Navigate to the appropriate directory (use absolute paths starting with {workspace_path})
-3. Create or modify files as requested
-4. Test your changes if applicable
-5. Commit your changes using git_helper.commit_changes()
-6. Push your branch using git_helper.push_branch()
-7. Create a pull request using git_helper.create_github_pr() if the task is complete
-8. Report back on what you've done, including branch name and PR link if created
+1. Use the tool server to read existing files and understand the codebase
+2. Create a feature branch using /tools/{role}/git/create_branch
+3. Make your changes using /tools/{role}/write_file
+4. Test your changes if applicable using /tools/{role}/execute
+5. Commit your changes using /tools/{role}/git/commit
+6. Push your branch using /tools/{role}/git/push
+7. Report back on what you've done, including file changes and branch name
 
 IMPORTANT: 
-- Always use absolute paths starting with {workspace_path} when working with files
+- Always use the tool server endpoints to interact with files
 - Each task should get its own feature branch
 - Include meaningful commit messages and PR descriptions
+- Your working directory is: {workspace_path}
 """
 
 # Create agent and API

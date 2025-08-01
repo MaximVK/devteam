@@ -11,6 +11,7 @@ import httpx
 from core.orchestrator import AgentOrchestrator, AgentRole
 from core.telegram_bridge import TelegramSettings
 from core.github_sync import GitHubSettings
+from core.conversation_history import ConversationHistory
 
 
 app = FastAPI(title="DevTeam Dashboard")
@@ -268,6 +269,34 @@ async def get_agent_logs(role: str, limit: int = 50):
             return {"logs": lines[-limit:]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read logs: {str(e)}")
+
+
+@app.get("/api/agents/{role}/history")
+async def get_agent_conversation_history(role: str, hours: int = 24):
+    """Get conversation history for a specific agent"""
+    conversation_history = ConversationHistory()
+    history = conversation_history.load_agent_history(role)
+    
+    if not history:
+        return {"history": [], "summary": f"No conversation history for {role}"}
+    
+    # Get recent context
+    recent_context = conversation_history.get_recent_context(role, hours)
+    task_context = conversation_history.get_task_context(role)
+    
+    return {
+        "history": history[-20:],  # Last 20 messages
+        "recent_context": recent_context,
+        "task_context": task_context,
+        "total_messages": len(history)
+    }
+
+
+@app.get("/api/conversation-summary")
+async def get_all_agents_conversation_summary():
+    """Get conversation summary for all agents"""
+    conversation_history = ConversationHistory()
+    return conversation_history.get_all_agents_summary()
 
 
 @app.get("/api/claude/{role}")

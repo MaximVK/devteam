@@ -8,6 +8,7 @@ from enum import Enum
 import anthropic
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic_settings import BaseSettings
+from .conversation_history import ConversationHistory
 
 
 class AgentRole(str, Enum):
@@ -67,6 +68,7 @@ class ClaudeAgent:
         self.client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
         self.state = AgentState()
         self._system_prompt: Optional[str] = None
+        self.conversation_history = ConversationHistory()
         
     @property
     def system_prompt(self) -> str:
@@ -172,13 +174,28 @@ Guide the team but avoid implementing features directly.
         
     async def process_message(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
         try:
+            # Get conversation history context
+            history_context = self.conversation_history.get_recent_context(self.settings.role.value)
+            task_context_info = self.conversation_history.get_task_context(self.settings.role.value)
+            
+            # Build enhanced message with history
+            enhanced_message = message
+            
+            # Add conversation history if available
+            if history_context and "No previous conversation" not in history_context:
+                enhanced_message = f"{history_context}\n\n---\n\n**Current Request:**\n{message}"
+            
+            # Add task context if different from conversation history
+            if task_context_info and "No recent task" not in task_context_info and task_context_info != history_context:
+                enhanced_message = f"{task_context_info}\n\n{enhanced_message}"
+            
             messages = [
-                {"role": "user", "content": message}
+                {"role": "user", "content": enhanced_message}
             ]
             
             if context and "task" in context:
                 task_context = f"\n\nCurrent task: {context['task'].title}\nDescription: {context['task'].description}"
-                messages[0]["content"] = task_context + "\n\n" + message
+                messages[0]["content"] = task_context + "\n\n" + messages[0]["content"]
                 
             response = self.client.messages.create(
                 model=self.settings.model,
@@ -188,16 +205,26 @@ Guide the team but avoid implementing features directly.
                 messages=messages
             )
             
+            agent_response = response.content[0].text
+            
+            # Store conversation in history
+            self.conversation_history.add_message(
+                agent_role=self.settings.role.value,
+                user_message=message,  # Store original message, not enhanced
+                agent_response=agent_response,
+                context=context
+            )
+            
             self.state.total_tokens_used += response.usage.input_tokens + response.usage.output_tokens
             self.state.last_activity = datetime.now()
             self.state.messages.append({
                 "timestamp": datetime.now().isoformat(),
                 "user_message": message,
-                "assistant_response": response.content[0].text,
+                "assistant_response": agent_response,
                 "tokens_used": response.usage.input_tokens + response.usage.output_tokens
             })
             
-            return response.content[0].text
+            return agent_response
             
         except Exception as e:
             return f"Error processing message: {str(e)}"

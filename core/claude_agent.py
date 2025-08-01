@@ -22,7 +22,7 @@ class AgentRole(str, Enum):
 class AgentSettings(BaseSettings):
     role: AgentRole
     port: int
-    model: str = "claude-3-sonnet-20240229"
+    model: str = "claude-3-5-sonnet-20241022"
     claude_file: str = "claude.md"
     telegram_channel_id: Optional[str] = None
     github_repo: Optional[str] = None
@@ -64,7 +64,7 @@ class AgentState(BaseModel):
 class ClaudeAgent:
     def __init__(self, settings: AgentSettings):
         self.settings = settings
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        self.client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
         self.state = AgentState()
         self._system_prompt: Optional[str] = None
         

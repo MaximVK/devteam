@@ -28,7 +28,7 @@ class AgentAPI:
     def _setup_routes(self):
         @self.app.get("/")
         async def root():
-            return {"agent": self.agent.settings.role, "status": "running"}
+            return {"agent": self.agent.settings.role.value, "status": "running"}
             
         @self.app.get("/status")
         async def get_status():

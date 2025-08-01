@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Anthropic API
     anthropic_api_key: str = Field(..., description="Anthropic API key")
     default_model: str = Field(
-        default="claude-3-sonnet-20240229",
+        default="claude-3-5-sonnet-20241022",
         description="Default Claude model"
     )
     

@@ -56,6 +56,18 @@ export default function Layout({ children }: LayoutProps) {
             component={RouterLink}
             to={item.path}
             selected={location.pathname === item.path}
+            sx={{
+              backgroundColor: location.pathname === item.path ? '#ffffff' : 'transparent',
+              '&:hover': {
+                backgroundColor: '#f5f5f5',
+              },
+              '& .MuiListItemIcon-root': {
+                color: location.pathname === item.path ? '#1976d2' : '#757575',
+              },
+              '& .MuiListItemText-primary': {
+                color: location.pathname === item.path ? '#1976d2' : '#424242',
+              },
+            }}
           >
             <ListItemIcon>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
@@ -105,6 +117,7 @@ export default function Layout({ children }: LayoutProps) {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
+              backgroundColor: '#fafafa',
             },
           }}
         >
@@ -117,6 +130,7 @@ export default function Layout({ children }: LayoutProps) {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
+              backgroundColor: '#fafafa',
             },
           }}
           open

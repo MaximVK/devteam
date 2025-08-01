@@ -12,6 +12,7 @@ sys.path.insert(0, str(project_root))
 
 from agents.api import AgentAPI
 from core.claude_agent import ClaudeAgent, AgentSettings, AgentRole
+from core.git_helper import GitHelper
 from config.settings import settings
 
 # Get agent role from environment
@@ -30,13 +31,19 @@ agent_config = workspace_config.get("agents", {}).get(role, {})
 workspace_path = agent_config.get("working_directory", "/Users/maxim/dev/agent-workspace/devteam")
 
 # Set up agent context
+git_config = workspace_config.get("workspace", {}).get("git_config", {})
+git_workflow = workspace_config.get("git_workflow", {})
+
 agent_context = {
     "workspace_path": workspace_path,
     "capabilities": agent_config.get("capabilities", []),
     "file_patterns": agent_config.get("file_patterns", ["*"]),
-    "git_config": workspace_config.get("workspace", {}).get("git_config", {}),
-    "git_workflow": workspace_config.get("git_workflow", {})
+    "git_config": git_config,
+    "git_workflow": git_workflow
 }
+
+# Initialize git helper
+git_helper = GitHelper(workspace_path, git_config)
 
 print(f"🤖 Starting {role} agent with workspace: {workspace_path}")
 
@@ -63,22 +70,38 @@ Your capabilities include: {', '.join(agent_config.get('capabilities', []))}
 You can work with these file types: {', '.join(agent_config.get('file_patterns', ['*']))}
 
 ### Git Workflow:
-- Create feature branches using pattern: {workspace_config.get('git_workflow', {}).get('feature_branch_pattern', 'feature/{task}')}
+- Create feature branches using pattern: {git_workflow.get('feature_branch_pattern', 'agent/{role}/{task_id}')}
 - Always commit your changes with clear messages
-- Push changes to origin
-- Create pull requests when tasks are complete
+- Push changes to origin automatically: {git_workflow.get('auto_push', True)}
+- Create pull requests when tasks are complete: {git_workflow.get('create_pull_requests', True)}
 
 ### Working Directory:
 Your primary working directory is: {workspace_path}
 
-When users ask you to make changes, you should:
-1. Navigate to the appropriate directory
-2. Create or modify files as requested
-3. Test your changes if applicable
-4. Commit and push your changes
-5. Report back on what you've done
+### Git Helper Commands Available:
+You have access to a git_helper object with these methods:
+- git_helper.create_feature_branch(agent_role, task_id, task_title) - Create a new branch for your work
+- git_helper.commit_changes(task_title, description, agent_role, task_id) - Commit your changes
+- git_helper.push_branch(branch_name) - Push branch to remote
+- git_helper.get_current_branch() - Get current branch name
+- git_helper.get_branch_status() - Get detailed git status
+- git_helper.create_github_pr(branch_name, title, description, changes, test_plan, agent_role) - Create PR
 
-IMPORTANT: Always use absolute paths starting with {workspace_path} when working with files.
+### Task Workflow:
+When users ask you to make changes, follow this workflow:
+1. Create a feature branch for the task using git_helper.create_feature_branch()
+2. Navigate to the appropriate directory (use absolute paths starting with {workspace_path})
+3. Create or modify files as requested
+4. Test your changes if applicable
+5. Commit your changes using git_helper.commit_changes()
+6. Push your branch using git_helper.push_branch()
+7. Create a pull request using git_helper.create_github_pr() if the task is complete
+8. Report back on what you've done, including branch name and PR link if created
+
+IMPORTANT: 
+- Always use absolute paths starting with {workspace_path} when working with files
+- Each task should get its own feature branch
+- Include meaningful commit messages and PR descriptions
 """
 
 # Create agent and API
@@ -88,8 +111,9 @@ agent = ClaudeAgent(agent_settings)
 original_prompt = agent.system_prompt
 agent._system_prompt = original_prompt + "\n\n" + claude_prompt_addition
 
-# Store workspace context as agent attribute (not in state)
+# Store workspace context and git helper as agent attributes
 agent.workspace_context = agent_context
+agent.git_helper = git_helper
 
 api = AgentAPI(agent)
 app = api.app

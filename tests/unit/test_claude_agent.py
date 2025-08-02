@@ -161,16 +161,18 @@ class TestClaudeAgent:
             settings = AgentSettings(
                 role=role,
                 port=8300,
-                anthropic_api_key="test"
+                anthropic_api_key="test",
+                _env_file=None
             )
             
             with patch('anthropic.Anthropic'):
-                agent = ClaudeAgent(settings)
-                prompt = agent._generate_default_prompt()
-                
-                assert "# COMMON" in prompt
-                assert f"# ROLE: {role.value}" in prompt
-                assert expected_text in prompt
+                with patch('core.claude_agent.ConversationHistory'):
+                    agent = ClaudeAgent(settings)
+                    prompt = agent._generate_default_prompt()
+                    
+                    assert "# COMMON" in prompt
+                    assert f"# ROLE: {role.value}" in prompt
+                    assert expected_text in prompt
                 
     def test_state_persistence(self, claude_agent):
         """Test that agent state is properly maintained"""

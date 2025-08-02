@@ -17,12 +17,11 @@ class TestGitHubSync:
         
     def test_get_repo_with_organization(self, github_settings, mock_github):
         """Test repository access with organization"""
-        with patch('github.Github', return_value=mock_github[0]):
-            with patch.object(GitHubSync, '_get_repo', return_value=mock_github[1]):
-                sync = GitHubSync(github_settings)
-                sync._get_repo()
-                
-                mock_github[0].get_organization.assert_called_once_with("test-org")
+        with patch('core.github_sync.Github', return_value=mock_github[0]):
+            sync = GitHubSync(github_settings)
+            # The _get_repo is called in __init__, so check it was called correctly
+            mock_github[0].get_organization.assert_called_once_with("test-org")
+            mock_github[0].get_organization().get_repo.assert_called_once_with("test-repo")
             
     def test_get_repo_without_organization(self, mock_github):
         """Test repository access without organization"""
@@ -31,12 +30,11 @@ class TestGitHubSync:
             repo_name="test-repo"
         )
         
-        with patch('github.Github', return_value=mock_github[0]):
-            with patch.object(GitHubSync, '_get_repo', return_value=mock_github[1]):
-                sync = GitHubSync(settings)
-                sync._get_repo()
-                
-                mock_github[0].get_user.assert_called_once()
+        with patch('core.github_sync.Github', return_value=mock_github[0]):
+            sync = GitHubSync(settings)
+            # The _get_repo is called in __init__, so check it was called correctly
+            mock_github[0].get_user.assert_called_once()
+            mock_github[0].get_user().get_repo.assert_called_once_with("test-repo")
             
     @pytest.mark.asyncio
     async def test_get_tasks_for_role(self, github_sync, mock_github):

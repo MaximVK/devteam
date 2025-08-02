@@ -53,19 +53,25 @@ def agent_settings(temp_dir):
         port=8301,
         model="claude-3-sonnet-20240229",
         claude_file=str(temp_dir / "claude.md"),
-        anthropic_api_key="test-api-key"
+        anthropic_api_key="test-api-key",
+        _env_file=None  # Prevent loading .env in tests
     )
 
 
 @pytest.fixture
-def claude_agent(agent_settings, mock_anthropic_client):
+def claude_agent(agent_settings, mock_anthropic_client, temp_dir):
     """Create a test Claude agent"""
     # Create claude.md file
     Path(agent_settings.claude_file).write_text("# Test prompt")
     
+    # Patch conversation history to use temp directory
     with patch('anthropic.Anthropic', return_value=mock_anthropic_client):
-        agent = ClaudeAgent(agent_settings)
-        yield agent
+        with patch('core.claude_agent.ConversationHistory') as mock_conv_history:
+            mock_conv_history.return_value.get_recent_context.return_value = "No previous conversation history."
+            mock_conv_history.return_value.get_task_context.return_value = "No recent task-related conversation found."
+            mock_conv_history.return_value.add_message.return_value = None
+            agent = ClaudeAgent(agent_settings)
+            yield agent
 
 
 @pytest.fixture
@@ -174,11 +180,12 @@ def mock_github():
 @pytest.fixture
 def github_sync(github_settings, mock_github):
     """Create a test GitHub sync"""
-    with patch('github.Github', return_value=mock_github[0]):
-        with patch.object(GitHubSync, '_get_repo', return_value=mock_github[1]):
-            sync = GitHubSync(github_settings)
-            sync.repo = mock_github[1]
-            yield sync
+    # Mock the entire GitHub class to prevent real API calls
+    with patch('core.github_sync.Github', return_value=mock_github[0]):
+        sync = GitHubSync(github_settings)
+        # Ensure the repo is the mocked one
+        sync.repo = mock_github[1]
+        yield sync
 
 
 @pytest.fixture

@@ -1,60 +1,180 @@
 #!/bin/bash
-# Start all DevTeam agents and services
+# Universal DevTeam startup script
 
 echo "🚀 Starting DevTeam System"
-echo "========================="
+echo "=========================="
+
+# Change to project directory
+cd /Users/maxim/dev/experimental/devteam
 
 # Activate virtual environment
 source .venv/bin/activate
 
-# Kill any existing processes on our ports
+# Create logs directory if it doesn't exist
+mkdir -p logs
+
+# Kill any existing processes
 echo "🧹 Cleaning up existing processes..."
-for port in 8301 8302 8303 8304 8305 8306 8000; do
+for port in 8301 8302 8303 8304 8305 8306 8000 3000 8500; do
     lsof -ti:$port | xargs kill -9 2>/dev/null || true
 done
 
-# Start each agent in the background
-echo "🤖 Starting agents..."
-AGENT_ROLE=backend python agents/run_agent.py &
-echo "  ✅ Backend agent started on port 8301"
+# Kill all related processes
+pkill -f "python agents/run_" 2>/dev/null || true
+pkill -f "uvicorn web.backend:app" 2>/dev/null || true
+pkill -f "npm run dev" 2>/dev/null || true
+pkill -f "vite" 2>/dev/null || true
+pkill -f "start_telegram_bridge.py" 2>/dev/null || true
+pkill -f "tool_server.py" 2>/dev/null || true
+pkill -f "telegram_bridge" 2>/dev/null || true
+pkill -f "tail -f logs" 2>/dev/null || true
+
 sleep 2
 
-AGENT_ROLE=frontend python agents/run_agent.py &
-echo "  ✅ Frontend agent started on port 8302"
-sleep 2
+# Detect which mode to use
+echo ""
+echo "🔍 Detecting configuration..."
 
-AGENT_ROLE=database python agents/run_agent.py &
-echo "  ✅ Database agent started on port 8303"
-sleep 2
+WORKSPACE_DIR="${DEVTEAM_WORKSPACE:-$HOME/devteam-workspace}"
+USE_WORKSPACE_MODE=false
+AGENT_SCRIPT="agents/run_agent.py"
 
-AGENT_ROLE=qa python agents/run_agent.py &
-echo "  ✅ QA agent started on port 8304"
-sleep 2
+# Check for new workspace configuration
+if [ -f "$WORKSPACE_DIR/workspace_config.json" ]; then
+    echo "  📁 Found workspace configuration at: $WORKSPACE_DIR"
+    USE_WORKSPACE_MODE=true
+# Check for legacy workspace configuration
+elif [ -f "config/agent_workspace.json" ] && [ -d "$HOME/dev/agent-workspace/devteam" ]; then
+    echo "  📁 Using legacy workspace-aware agents"
+    AGENT_SCRIPT="agents/run_agent_with_workspace.py"
+else
+    echo "  📦 Using standard agents"
+fi
 
-AGENT_ROLE=ba python agents/run_agent.py &
-echo "  ✅ BA agent started on port 8305"
-sleep 2
+# Start agents
+echo ""
+echo "🤖 Starting AI Agents..."
 
-AGENT_ROLE=teamlead python agents/run_agent.py &
-echo "  ✅ Team Lead agent started on port 8306"
+if [ "$USE_WORKSPACE_MODE" = true ]; then
+    # Get active agents from workspace config
+    ACTIVE_AGENTS=$(python -c "
+import json
+from pathlib import Path
+config_path = Path('$WORKSPACE_DIR') / 'workspace_config.json'
+if config_path.exists():
+    with open(config_path) as f:
+        config = json.load(f)
+        for role in config.get('active_agents', {}).keys():
+            print(role)
+" 2>/dev/null)
+    
+    if [ -z "$ACTIVE_AGENTS" ]; then
+        echo "  ⚠️  No active agents found in workspace"
+        echo "  Please configure agents through the web interface first"
+    else
+        for role in $ACTIVE_AGENTS; do
+            echo "  Starting $role agent..."
+            python agents/run_workspace_agent.py $role --workspace "$WORKSPACE_DIR" > logs/${role}.log 2>&1 &
+            echo "  ✅ $role agent started"
+            sleep 1
+        done
+    fi
+else
+    # Start all standard agents
+    AGENT_ROLE=BACKEND python $AGENT_SCRIPT > logs/backend.log 2>&1 &
+    echo "  ✅ Backend agent started (port 8301)"
+    sleep 1
+    
+    AGENT_ROLE=FRONTEND python $AGENT_SCRIPT > logs/frontend.log 2>&1 &
+    echo "  ✅ Frontend agent started (port 8302)"
+    sleep 1
+    
+    AGENT_ROLE=DATABASE python $AGENT_SCRIPT > logs/database.log 2>&1 &
+    echo "  ✅ Database agent started (port 8303)"
+    sleep 1
+    
+    AGENT_ROLE=QA python $AGENT_SCRIPT > logs/qa.log 2>&1 &
+    echo "  ✅ QA agent started (port 8304)"
+    sleep 1
+    
+    AGENT_ROLE=BA python $AGENT_SCRIPT > logs/ba.log 2>&1 &
+    echo "  ✅ BA agent started (port 8305)"
+    sleep 1
+    
+    AGENT_ROLE=TEAMLEAD python $AGENT_SCRIPT > logs/teamlead.log 2>&1 &
+    echo "  ✅ Team Lead agent started (port 8306)"
+    sleep 2
+fi
+
+# Start tool server
+echo ""
+echo "🔧 Starting Tool Server..."
+python tool_server.py > logs/tool_server.log 2>&1 &
+echo "  ✅ Tool server started (port 8500)"
 sleep 2
 
 # Start web backend
-echo "🌐 Starting web backend..."
-python -m uvicorn web.backend:app --host 0.0.0.0 --port 8000 --reload &
-echo "  ✅ Web backend started on port 8000"
+echo ""
+echo "🌐 Starting Web Backend..."
+python -m uvicorn web.backend:app --host 0.0.0.0 --port 8000 --reload > logs/web-backend.log 2>&1 &
+echo "  ✅ Web backend API started (port 8000)"
+sleep 2
+
+# Start web frontend
+echo ""
+echo "🎨 Starting Web Frontend..."
+cd web/frontend
+npm run dev > ../../logs/web-frontend.log 2>&1 &
+cd ../..
+echo "  ✅ Web frontend started (port 3000)"
+sleep 3
+
+# Start Telegram bridge if configured
+echo ""
+echo "📱 Checking Telegram configuration..."
+
+HAS_TELEGRAM=false
+if [ "$USE_WORKSPACE_MODE" = true ] && [ -f "$WORKSPACE_DIR/workspace_config.json" ]; then
+    if grep -q '"telegram_bot_token": "[^"]\+' "$WORKSPACE_DIR/workspace_config.json" 2>/dev/null; then
+        HAS_TELEGRAM=true
+    fi
+elif [ -f ".env" ] && grep -q "TELEGRAM_BOT_TOKEN=.\+" .env 2>/dev/null; then
+    HAS_TELEGRAM=true
+fi
+
+if [ "$HAS_TELEGRAM" = true ]; then
+    python start_telegram_bridge.py > logs/telegram_bridge.log 2>&1 &
+    echo "  ✅ Telegram bridge started"
+else
+    echo "  ⚠️  Telegram not configured (skipping)"
+fi
+sleep 2
+
+# Check status
+echo ""
+echo "🔍 Checking services..."
+sleep 3
+python check_status.py
 
 echo ""
-echo "✅ All services started!"
+echo "==========================================="
+echo "✅ DevTeam is ready!"
+echo "==========================================="
 echo ""
-echo "📱 Telegram: Send messages to your group chat"
-echo "   Use @backend, @frontend, @qa, @ba, @database, @teamlead"
-echo ""
-echo "🌐 Web Dashboard: http://localhost:8000"
-echo ""
-echo "🛑 To stop all services, run: ./stop.sh"
-echo ""
-echo "Press Ctrl+C to stop watching logs..."
+echo "📊 Access Points:"
+echo "  • Web Dashboard: http://localhost:3000"
+echo "  • API Documentation: http://localhost:8000/docs"
 
-# Keep the script running to show logs
-wait
+if [ "$USE_WORKSPACE_MODE" = true ]; then
+    echo ""
+    echo "📁 Workspace: $WORKSPACE_DIR"
+fi
+
+echo ""
+echo "📁 Logs: ./logs/"
+echo "🛑 To stop all: ./stop.sh"
+echo ""
+echo "Press Ctrl+C to view logs (services will keep running)..."
+
+# Tail logs
+tail -f logs/*.log

@@ -138,13 +138,15 @@ ANTHROPIC_API_KEY=${{ANTHROPIC_API_KEY}}
         temp_settings = AgentSettings(
             role=role,
             port=8000,
-            anthropic_api_key="temp"
+            anthropic_api_key="temp",
+            _env_file=None  # Don't load .env file
         )
         
         # Mock the Anthropic client to avoid initialization
         with patch('anthropic.Anthropic'):
-            temp_agent = ClaudeAgent(temp_settings)
-            prompt = temp_agent._generate_default_prompt()
+            with patch('core.claude_agent.ConversationHistory'):
+                temp_agent = ClaudeAgent(temp_settings)
+                prompt = temp_agent._generate_default_prompt()
         
         path.write_text(prompt)
         

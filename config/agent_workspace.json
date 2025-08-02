@@ -10,37 +10,37 @@
   },
   "agents": {
     "backend": {
-      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "working_directory": "/Users/maxim/dev/agent-workspace/backend/devteam",
       "capabilities": ["create_files", "edit_files", "git_operations"],
       "file_patterns": ["*.py", "*.json", "*.yaml", "*.toml"],
       "excluded_paths": ["node_modules", ".git", "__pycache__"]
     },
     "frontend": {
-      "working_directory": "/Users/maxim/dev/agent-workspace/devteam/web/frontend",
+      "working_directory": "/Users/maxim/dev/agent-workspace/frontend/devteam",
       "capabilities": ["create_files", "edit_files", "git_operations"],
       "file_patterns": ["*.tsx", "*.ts", "*.jsx", "*.js", "*.css", "*.json"],
       "excluded_paths": ["node_modules", ".git", "build", "dist"]
     },
     "database": {
-      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "working_directory": "/Users/maxim/dev/agent-workspace/database/devteam",
       "capabilities": ["create_files", "edit_files"],
       "file_patterns": ["*.sql", "*.py"],
       "excluded_paths": ["node_modules", ".git"]
     },
     "qa": {
-      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "working_directory": "/Users/maxim/dev/agent-workspace/qa/devteam",
       "capabilities": ["create_files", "edit_files", "run_tests"],
       "file_patterns": ["test_*.py", "*_test.py", "*.spec.ts", "*.test.tsx"],
       "excluded_paths": ["node_modules", ".git"]
     },
     "ba": {
-      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "working_directory": "/Users/maxim/dev/agent-workspace/ba/devteam",
       "capabilities": ["create_files", "edit_files"],
       "file_patterns": ["*.md", "*.txt", "*.json"],
       "excluded_paths": ["node_modules", ".git"]
     },
     "teamlead": {
-      "working_directory": "/Users/maxim/dev/agent-workspace/devteam",
+      "working_directory": "/Users/maxim/dev/agent-workspace/teamlead/devteam",
       "capabilities": ["create_files", "edit_files", "git_operations", "review_code"],
       "file_patterns": ["*"],
       "excluded_paths": ["node_modules", ".git"]

@@ -13,6 +13,8 @@ from core.telegram_bridge import TelegramSettings
 from core.github_sync import GitHubSettings
 from core.conversation_history import ConversationHistory
 
+# Import workspace API
+from web.backend.workspace_api import router as workspace_router
 
 app = FastAPI(title="DevTeam Dashboard")
 
@@ -24,6 +26,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include workspace router
+app.include_router(workspace_router)
 
 # Global orchestrator instance
 orchestrator: Optional[AgentOrchestrator] = None

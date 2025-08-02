@@ -55,7 +55,7 @@ agent_settings = AgentSettings(
     port=settings.get_agent_port(role),
     telegram_channel_id=settings.telegram_channel_id,
     github_repo=settings.github_repo,
-    claude_file=f"claude/{role}_workspace.md",  # Use workspace-aware Claude file
+    claude_file="",  # We'll load this manually from workspace
     _env_file=None
 )
 
@@ -130,9 +130,18 @@ IMPORTANT:
 # Create agent and API
 agent = ClaudeAgent(agent_settings)
 
-# Enhance the agent's system prompt
-original_prompt = agent.system_prompt
-agent._system_prompt = original_prompt + "\n\n" + claude_prompt_addition
+# Read CLAUDE.md from workspace if it exists
+claude_md_path = Path(workspace_path) / "CLAUDE.md"
+if claude_md_path.exists():
+    print(f"📄 Loading CLAUDE.md from workspace: {claude_md_path}")
+    claude_content = claude_md_path.read_text()
+    # Set the agent's system prompt to include CLAUDE.md content
+    agent._system_prompt = claude_content + "\n\n" + claude_prompt_addition
+else:
+    print(f"⚠️  No CLAUDE.md found at {claude_md_path}")
+    # Enhance the agent's system prompt with just the additional info
+    original_prompt = agent.system_prompt
+    agent._system_prompt = original_prompt + "\n\n" + claude_prompt_addition
 
 # Store workspace context and git helper as agent attributes
 agent.workspace_context = agent_context

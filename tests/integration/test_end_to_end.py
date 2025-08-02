@@ -32,7 +32,17 @@ class TestEndToEnd:
                 # Mock agent readiness
                 orchestrator._wait_for_agent = AsyncMock()
                 
-                # Create agent
+                # Create agent - orchestrator expects the agent to already exist
+                # First create the agent in orchestrator's agents dict
+                from core.orchestrator import AgentProcess
+                agent_process = AgentProcess(
+                    role=AgentRole.BACKEND,
+                    port=8301,
+                    env_file=str(temp_dir / "config" / "backend.env")
+                )
+                orchestrator.agents["backend"] = agent_process
+                
+                # Now create the agent
                 agent = await orchestrator.create_agent(
                     role=AgentRole.BACKEND,
                     model="claude-3-sonnet-20240229"
@@ -61,18 +71,20 @@ class TestEndToEnd:
         """Test task assignment and completion flow"""
         # Setup
         with patch('anthropic.Anthropic', return_value=mock_anthropic_client):
-            # Create agent
-            settings = AgentSettings(
-                role=AgentRole.BACKEND,
-                port=8301,
-                anthropic_api_key="test-key",
-                claude_file=str(temp_dir / "claude.md")
-            )
-            
-            # Create claude.md
-            Path(settings.claude_file).write_text("# Test")
-            
-            agent = ClaudeAgent(settings)
+            with patch('core.claude_agent.ConversationHistory'):
+                # Create agent
+                settings = AgentSettings(
+                    role=AgentRole.BACKEND,
+                    port=8301,
+                    anthropic_api_key="test-key",
+                    claude_file=str(temp_dir / "claude.md"),
+                    _env_file=None
+                )
+                
+                # Create claude.md
+                Path(settings.claude_file).write_text("# Test")
+                
+                agent = ClaudeAgent(settings)
             
             # Create task
             task = Task(

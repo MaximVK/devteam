@@ -2,9 +2,15 @@
 """Tool server that provides file system access to agents via HTTP API"""
 
 import os
+import sys
 import json
 from pathlib import Path
 from typing import Dict, Any, List
+
+# Add project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn

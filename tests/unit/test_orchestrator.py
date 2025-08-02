@@ -106,6 +106,15 @@ class TestAgentOrchestrator:
             # Mock wait_for_agent
             orchestrator._wait_for_agent = AsyncMock()
             
+            # Create the agent in orchestrator first
+            from core.orchestrator import AgentProcess
+            agent_process = AgentProcess(
+                role=AgentRole.BACKEND,
+                port=8300,
+                env_file=str(temp_dir / "config" / ".env.backend")
+            )
+            orchestrator.agents["backend"] = agent_process
+            
             agent = await orchestrator.create_agent(
                 role=AgentRole.BACKEND,
                 model="claude-3-sonnet-20240229",

@@ -42,6 +42,8 @@ class TestTelegramBridge:
         with patch('telegram.ext.Application') as mock_app:
             # Setup mock
             app_instance = AsyncMock()
+            # Mock the updater attribute
+            app_instance.updater = AsyncMock()
             builder = Mock()
             token_builder = Mock()
             
@@ -49,8 +51,16 @@ class TestTelegramBridge:
             builder.token.return_value = token_builder
             token_builder.build.return_value = app_instance
             
-            # Create bridge and start
+            # Mock the bot to prevent real API calls
+            mock_bot = AsyncMock()
+            app_instance.bot = mock_bot
+            
+            # Create bridge
             bridge = TelegramBridge(telegram_settings)
+            # Set the mocked application
+            bridge.application = app_instance
+            
+            # Now start it
             await bridge.start()
             
             assert bridge.application is not None

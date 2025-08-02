@@ -14,7 +14,7 @@ from core.github_sync import GitHubSettings
 from core.conversation_history import ConversationHistory
 
 # Import workspace API
-from web.backend.workspace_api import router as workspace_router
+from web.workspace_api import router as workspace_router
 
 app = FastAPI(title="DevTeam Dashboard")
 

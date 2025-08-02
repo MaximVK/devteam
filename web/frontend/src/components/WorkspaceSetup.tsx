@@ -14,7 +14,7 @@ import {
   Divider,
   Chip
 } from '@mui/material';
-import { api } from '../api/client';
+import { api } from '../services/api';
 
 interface WorkspaceStatus {
   initialized: boolean;
@@ -61,8 +61,12 @@ export const WorkspaceSetup: React.FC = () => {
     try {
       const response = await api.get('/workspace/status');
       setStatus(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to check workspace status:', error);
+      // If it's a 404, the endpoint might not exist yet
+      if (error.response?.status === 404) {
+        setStatus({ initialized: false, available_roles: [], active_agents: {}, maestro_exists: false });
+      }
     } finally {
       setLoading(false);
     }

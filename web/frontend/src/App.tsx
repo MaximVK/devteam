@@ -8,7 +8,7 @@ import Tasks from './pages/Tasks'
 import ClaudeEditor from './pages/ClaudeEditor'
 import Settings from './pages/Settings'
 import { WorkspaceSetup } from './components/WorkspaceSetup'
-import { api } from './api/client'
+import { api } from './services/api'
 
 function App() {
   const [workspaceInitialized, setWorkspaceInitialized] = useState<boolean | null>(null);
@@ -22,8 +22,9 @@ function App() {
     try {
       const response = await api.get('/workspace/status');
       setWorkspaceInitialized(response.data.initialized);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to check workspace status:', error);
+      // If it's a 404, assume workspace is not initialized
       setWorkspaceInitialized(false);
     } finally {
       setLoading(false);

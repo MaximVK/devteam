@@ -53,16 +53,27 @@ export default function Agents() {
   )
 
   // Also try to get current project for agent configuration access
-  const { data: projects } = useQuery(
+  const { data: projects, isLoading: projectsLoading, error: projectsError } = useQuery(
     'projects',
     () => appService.getProjects().then((res) => res.data),
     { 
       refetchInterval: 10000,
-      retry: false // Don't retry if this fails, it's optional
+      retry: false, // Don't retry if this fails, it's optional
+      onError: (error) => {
+        console.log('Failed to load projects for agent configuration:', error);
+      }
     }
   )
 
   const currentProject = projects?.find(p => p.is_current)
+  
+  // Debug logging
+  React.useEffect(() => {
+    if (projects) {
+      console.log('Projects loaded:', projects);
+      console.log('Current project:', currentProject);
+    }
+  }, [projects, currentProject])
 
   const createMutation = useMutation(
     (data: CreateAgentRequest) => agentService.create(data),
@@ -121,6 +132,18 @@ export default function Agents() {
         </Button>
       </Box>
 
+      {projectsLoading && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Loading project information...
+        </Alert>
+      )}
+      
+      {projectsError && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Could not load project information. Agent configuration settings are available from the Project Dashboard.
+        </Alert>
+      )}
+      
       {currentProject && (
         <Alert severity="info" sx={{ mb: 3 }}>
           For advanced agent configuration, go to the{' '}
@@ -131,7 +154,8 @@ export default function Agents() {
           >
             Project Dashboard
           </Button>
-          {' '}where you can access detailed agent settings, logs, and command history.
+          {' '}where you can access detailed agent settings, logs, and command history. 
+          Look for the <SettingsIcon sx={{ fontSize: 16, verticalAlign: 'middle' }} /> icon below.
         </Alert>
       )}
 
@@ -192,6 +216,7 @@ export default function Agents() {
                 {currentProject && (
                   <IconButton
                     size="small"
+                    color="primary"
                     onClick={async () => {
                       try {
                         // Get full project details to find matching agent
@@ -210,7 +235,7 @@ export default function Agents() {
                         navigate(`/projects/${currentProject.id}`);
                       }
                     }}
-                    title="Agent Configuration"
+                    title="Agent Configuration - View detailed settings, logs, and permissions"
                   >
                     <SettingsIcon />
                   </IconButton>

@@ -7,14 +7,17 @@ from pathlib import Path
 import json
 import asyncio
 import httpx
+import os
 
 from core.orchestrator import AgentOrchestrator, AgentRole
 from core.telegram_bridge import TelegramSettings
 from core.github_sync import GitHubSettings
 from core.conversation_history import ConversationHistory
+from core.agent_manager import AgentManager
 
 # Import workspace API
 from web.workspace_api import router as workspace_router
+from web.app_api import router as app_router
 
 app = FastAPI(title="DevTeam Dashboard")
 
@@ -27,11 +30,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include workspace router
+# Include routers
+app.include_router(app_router)
 app.include_router(workspace_router)
 
-# Global orchestrator instance
+# Global instances
 orchestrator: Optional[AgentOrchestrator] = None
+agent_manager: Optional[AgentManager] = None
 
 # Agent ports mapping
 AGENT_PORTS = {
@@ -118,8 +123,17 @@ async def check_agent_health(role: str, port: int) -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def startup_event():
-    global orchestrator
+    global orchestrator, agent_manager
     orchestrator = AgentOrchestrator()
+    
+    # Load app config for agent manager
+    from pathlib import Path
+    from core.app_config import AppConfig
+    
+    home_dir = Path(os.environ.get('DEVTEAM_HOME', Path.home() / 'devteam-home'))
+    app_config = AppConfig.load(home_dir)
+    if app_config:
+        agent_manager = AgentManager(app_config)
 
 
 @app.on_event("shutdown")
@@ -302,6 +316,86 @@ async def get_all_agents_conversation_summary():
     """Get conversation summary for all agents"""
     conversation_history = ConversationHistory()
     return conversation_history.get_all_agents_summary()
+
+
+# Agent Configuration Endpoints
+@app.get("/api/app/projects/{project_id}/agents/{agent_id}/config")
+async def get_agent_config(project_id: str, agent_id: str):
+    """Get configuration for a specific agent"""
+    project_config = agent_manager._load_project_config(project_id)
+    if not project_config:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if agent_id not in project_config.active_agents:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    config = project_config.get_agent_configuration(agent_id)
+    return config.model_dump()
+
+
+@app.put("/api/app/projects/{project_id}/agents/{agent_id}/config")
+async def update_agent_config(project_id: str, agent_id: str, config_data: Dict[str, Any]):
+    """Update configuration for a specific agent"""
+    project_config = agent_manager._load_project_config(project_id)
+    if not project_config:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if agent_id not in project_config.active_agents:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    try:
+        # Import here to avoid circular imports
+        from core.agent_config import AgentConfiguration
+        
+        # Validate the configuration
+        config = AgentConfiguration.model_validate(config_data)
+        config.agent_id = agent_id  # Ensure agent_id matches
+        
+        # Update and save
+        project_config.update_agent_configuration(agent_id, config)
+        
+        return {"success": True, "message": "Configuration updated"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/app/projects/{project_id}/agents/{agent_id}/logs")
+async def get_project_agent_logs(project_id: str, agent_id: str, lines: int = 100):
+    """Get logs for a specific agent in a project"""
+    log_file = agent_manager.app_config.home_directory / "logs" / f"{project_id}_{agent_id}.log"
+    
+    if not log_file.exists():
+        return {"logs": "No logs available"}
+    
+    try:
+        # Read last N lines
+        with open(log_file, 'r') as f:
+            all_lines = f.readlines()
+            recent_lines = all_lines[-lines:]
+            return {"logs": "".join(recent_lines)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading logs: {str(e)}")
+
+
+@app.get("/api/app/projects/{project_id}/agents/{agent_id}/commands")
+async def get_agent_commands(project_id: str, agent_id: str, limit: int = 50):
+    """Get recent commands executed by the agent"""
+    command_log = agent_manager.app_config.home_directory / "logs" / "agent_commands.log"
+    
+    if not command_log.exists():
+        return {"commands": []}
+    
+    try:
+        commands = []
+        with open(command_log, 'r') as f:
+            for line in f:
+                if f"[{agent_id}]" in line:
+                    commands.append(line.strip())
+        
+        # Return most recent commands
+        return {"commands": commands[-limit:]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading commands: {str(e)}")
 
 
 @app.get("/api/claude/{role}")

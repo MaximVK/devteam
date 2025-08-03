@@ -11,23 +11,63 @@ from pathlib import Path
 class AgentTools:
     """File system and command execution tools for agents"""
     
-    def __init__(self, workspace_path: str, allowed_paths: List[str] = None):
+    def __init__(self, workspace_path: str, allowed_paths: List[str] = None, allowed_commands: List[str] = None):
         self.workspace_path = Path(workspace_path)
         self.allowed_paths = allowed_paths or []
+        self.allowed_commands = allowed_commands or []
         
     def _validate_path(self, path: str) -> Path:
         """Validate that path is within allowed workspace"""
-        full_path = Path(path)
-        if not full_path.is_absolute():
+        # Convert to Path object
+        input_path = Path(path)
+        
+        # If path is absolute, use it directly
+        if input_path.is_absolute():
+            resolved_path = input_path.resolve()
+        else:
+            # If relative path, first try to resolve from workspace
             full_path = self.workspace_path / path
+            try:
+                resolved_path = full_path.resolve()
+            except Exception:
+                # If that fails, try as absolute path
+                try:
+                    resolved_path = Path(path).resolve()
+                except Exception as e:
+                    raise ValueError(f"Invalid path: {path} - {str(e)}")
             
-        # Ensure path is within workspace
+        # Resolve workspace for comparison
         try:
-            full_path.relative_to(self.workspace_path)
-        except ValueError:
-            raise ValueError(f"Path {full_path} is outside workspace {self.workspace_path}")
+            resolved_workspace = self.workspace_path.resolve()
+        except Exception as e:
+            raise ValueError(f"Invalid workspace path: {self.workspace_path} - {str(e)}")
             
-        return full_path
+        # Check if the resolved path is within the workspace
+        try:
+            resolved_path.relative_to(resolved_workspace)
+            return resolved_path
+        except ValueError:
+            # Not in workspace, check allowed paths
+            pass
+            
+        # Check if path is in allowed paths
+        for allowed_path in self.allowed_paths:
+            try:
+                allowed_resolved = Path(allowed_path).resolve()
+                # Check if resolved_path is within this allowed path
+                resolved_path.relative_to(allowed_resolved)
+                return resolved_path
+            except ValueError:
+                continue
+            except Exception:
+                # Skip invalid allowed paths
+                continue
+        
+        # Special case: if the path itself is in allowed_paths
+        if str(resolved_path) in self.allowed_paths:
+            return resolved_path
+            
+        raise ValueError(f"Path {path} is outside workspace and not in allowed paths. Agent can access: {self.workspace_path} and {self.allowed_paths}")
     
     def read_file(self, file_path: str) -> str:
         """Read a file from the workspace"""
@@ -60,11 +100,43 @@ class AgentTools:
     
     def execute_command(self, command: str, cwd: str = None) -> Dict[str, Any]:
         """Execute a shell command in the workspace"""
-        # Only allow safe commands
-        allowed_commands = ['git', 'ls', 'cat', 'grep', 'find', 'npm', 'yarn', 'python', 'node']
+        # Use instance allowed commands or default safe commands
+        if self.allowed_commands:
+            allowed_commands = self.allowed_commands
+        else:
+            allowed_commands = [
+                'git', 'ls', 'cat', 'grep', 'find', 'npm', 'yarn', 'python', 'node', 
+                'mkdir', 'touch', 'rm', 'cp', 'mv',
+                # Test-related commands
+                'pytest', 'python -m pytest', 'poetry', 'pip',
+                'jest', 'mocha', 'vitest',  # JS test runners
+                'go', 'cargo',  # For Go and Rust tests
+                'make', 'bash', 'sh',  # For running test scripts
+                'coverage', 'nyc',  # Coverage tools
+                'tox', 'nox',  # Python test automation
+                'phpunit', 'rspec',  # PHP and Ruby tests
+                'dotnet', 'mvn', 'gradle'  # .NET, Java build tools
+            ]
         cmd_parts = command.split()
-        if not cmd_parts or cmd_parts[0] not in allowed_commands:
-            raise ValueError(f"Command not allowed: {cmd_parts[0] if cmd_parts else 'empty'}")
+        if not cmd_parts:
+            raise ValueError("Empty command")
+            
+        # Check if the command starts with any allowed command
+        cmd_start = cmd_parts[0]
+        
+        # Also check for multi-word commands like "python -m pytest"
+        if len(cmd_parts) >= 3 and cmd_parts[0] == "python" and cmd_parts[1] == "-m":
+            cmd_start = "python -m " + cmd_parts[2]
+        
+        # Check if command is allowed
+        is_allowed = False
+        for allowed in allowed_commands:
+            if cmd_start == allowed or (allowed in ['python', 'node', 'poetry', 'pip', 'npm', 'yarn'] and cmd_start == allowed):
+                is_allowed = True
+                break
+                
+        if not is_allowed:
+            raise ValueError(f"Command not allowed: {cmd_start}")
         
         working_dir = self.workspace_path
         if cwd:

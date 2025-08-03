@@ -54,6 +54,10 @@ class GitHelper:
             subprocess.run(["git", "checkout", "-b", branch_name], 
                          cwd=self.workspace_path, check=True, capture_output=True)
             
+            # Push the new branch to remote with upstream tracking
+            subprocess.run(["git", "push", "-u", "origin", branch_name], 
+                         cwd=self.workspace_path, check=True, capture_output=True)
+            
             return branch_name
         except subprocess.CalledProcessError as e:
             raise Exception(f"Failed to create branch {branch_name}: {e}")
@@ -82,11 +86,27 @@ class GitHelper:
         except subprocess.CalledProcessError as e:
             raise Exception(f"Failed to commit changes: {e}")
     
-    def push_branch(self, branch_name: str) -> bool:
+    def push_branch(self, branch_name: str = None) -> bool:
         """Push the current branch to origin"""
         try:
-            subprocess.run(["git", "push", "-u", "origin", branch_name], 
-                         cwd=self.workspace_path, check=True, capture_output=True)
+            # If no branch name provided, use current branch
+            if not branch_name:
+                branch_name = self.get_current_branch()
+                
+            # First try to push the specified branch
+            result = subprocess.run(["git", "push", "-u", "origin", branch_name], 
+                                  cwd=self.workspace_path, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                # If that fails, try pushing the current branch
+                current_branch = self.get_current_branch()
+                if current_branch != branch_name:
+                    result = subprocess.run(["git", "push", "-u", "origin", current_branch], 
+                                          cwd=self.workspace_path, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        return True
+                raise subprocess.CalledProcessError(result.returncode, result.args, 
+                                                  output=result.stdout, stderr=result.stderr)
             return True
         except subprocess.CalledProcessError as e:
             raise Exception(f"Failed to push branch {branch_name}: {e}")

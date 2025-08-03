@@ -1,49 +1,50 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Box, Container } from '@mui/material'
+import { Box, Container, CircularProgress } from '@mui/material'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Agents from './pages/Agents'
 import Tasks from './pages/Tasks'
 import ClaudeEditor from './pages/ClaudeEditor'
-import Settings from './pages/Settings'
+import { AppSettings } from './components/AppSettings'
 import { WorkspaceSetup } from './components/WorkspaceSetup'
-import { api } from './services/api'
+import { HomeSetup } from './components/HomeSetup'
+import { ProjectList } from './components/ProjectList'
+import { ProjectDetail } from './components/ProjectDetail'
+import { AgentDetail } from './components/AgentDetail'
+import api from './services/api'
 
 function App() {
-  const [workspaceInitialized, setWorkspaceInitialized] = useState<boolean | null>(null);
+  const [appInitialized, setAppInitialized] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkWorkspaceStatus();
+    checkAppStatus();
   }, []);
 
-  const checkWorkspaceStatus = async () => {
+  const checkAppStatus = async () => {
     try {
-      const response = await api.get('/workspace/status');
-      setWorkspaceInitialized(response.data.initialized);
+      const response = await api.get('/app/status');
+      setAppInitialized(response.data.initialized);
     } catch (error: any) {
-      console.error('Failed to check workspace status:', error);
-      // If it's a 404, assume workspace is not initialized
-      setWorkspaceInitialized(false);
+      console.error('Failed to check app status:', error);
+      setAppInitialized(false);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">Loading...</Box>;
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  // If workspace not initialized, show setup
-  if (!workspaceInitialized) {
-    return (
-      <Container maxWidth="xl">
-        <Box sx={{ mt: 4 }}>
-          <WorkspaceSetup />
-        </Box>
-      </Container>
-    );
+  // If app not initialized, show home setup
+  if (!appInitialized) {
+    return <HomeSetup onInitialized={() => checkAppStatus()} />;
   }
 
   return (
@@ -51,11 +52,14 @@ function App() {
       <Container maxWidth="xl">
         <Box sx={{ mt: 4 }}>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<ProjectList />} />
+            <Route path="/projects" element={<ProjectList />} />
+            <Route path="/projects/:projectId" element={<ProjectDetail />} />
+            <Route path="/projects/:projectId/agents/:agentId" element={<AgentDetail />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/claude/:role" element={<ClaudeEditor />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings" element={<AppSettings />} />
             <Route path="/workspace" element={<WorkspaceSetup />} />
           </Routes>
         </Box>

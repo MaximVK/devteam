@@ -18,16 +18,18 @@ import {
   Typography,
   IconButton,
   Chip,
+  Alert,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   Stop as StopIcon,
   Code as CodeIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useNavigate } from 'react-router-dom'
-import { agentService, CreateAgentRequest } from '../services/api'
+import { agentService, CreateAgentRequest, appService } from '../services/api'
 
 const ROLES = ['frontend', 'backend', 'database', 'qa', 'ba', 'teamlead']
 const MODELS = [
@@ -49,6 +51,18 @@ export default function Agents() {
     () => agentService.getAll().then((res) => res.data),
     { refetchInterval: 5000 }
   )
+
+  // Also try to get current project for agent configuration access
+  const { data: projects } = useQuery(
+    'projects',
+    () => appService.getProjects().then((res) => res.data),
+    { 
+      refetchInterval: 10000,
+      retry: false // Don't retry if this fails, it's optional
+    }
+  )
+
+  const currentProject = projects?.find(p => p.is_current)
 
   const createMutation = useMutation(
     (data: CreateAgentRequest) => agentService.create(data),
@@ -107,6 +121,20 @@ export default function Agents() {
         </Button>
       </Box>
 
+      {currentProject && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          For advanced agent configuration, go to the{' '}
+          <Button 
+            variant="text" 
+            size="small" 
+            onClick={() => navigate(`/projects/${currentProject.id}`)}
+          >
+            Project Dashboard
+          </Button>
+          {' '}where you can access detailed agent settings, logs, and command history.
+        </Alert>
+      )}
+
       <Grid container spacing={3}>
         {agents?.map((agent) => (
           <Grid item xs={12} md={6} lg={4} key={agent.role}>
@@ -161,6 +189,32 @@ export default function Agents() {
                 >
                   <CodeIcon />
                 </IconButton>
+                {currentProject && (
+                  <IconButton
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        // Get full project details to find matching agent
+                        const projectDetails = await appService.getProject(currentProject.id);
+                        const projectAgent = Object.entries(projectDetails.data.agents || {}).find(
+                          ([, agentInfo]: [string, any]) => agentInfo.role === agent.role
+                        );
+                        if (projectAgent) {
+                          navigate(`/projects/${currentProject.id}/agents/${projectAgent[0]}`);
+                        } else {
+                          // If no matching agent found, go to project dashboard
+                          navigate(`/projects/${currentProject.id}`);
+                        }
+                      } catch (error) {
+                        console.error('Failed to navigate to agent config:', error);
+                        navigate(`/projects/${currentProject.id}`);
+                      }
+                    }}
+                    title="Agent Configuration"
+                  >
+                    <SettingsIcon />
+                  </IconButton>
+                )}
                 <IconButton
                   size="small"
                   onClick={() => restartMutation.mutate(agent.role)}

@@ -31,79 +31,18 @@ pkill -f "tail -f logs" 2>/dev/null || true
 
 sleep 2
 
-# Detect which mode to use
+# Detect home directory configuration
 echo ""
 echo "🔍 Detecting configuration..."
 
-WORKSPACE_DIR="${DEVTEAM_WORKSPACE:-$HOME/devteam-workspace}"
-USE_WORKSPACE_MODE=false
-AGENT_SCRIPT="agents/run_agent.py"
+HOME_DIR="${DEVTEAM_HOME:-$HOME/devteam-home}"
 
-# Check for new workspace configuration
-if [ -f "$WORKSPACE_DIR/workspace_config.json" ]; then
-    echo "  📁 Found workspace configuration at: $WORKSPACE_DIR"
-    USE_WORKSPACE_MODE=true
-# Check for legacy workspace configuration
-elif [ -f "config/agent_workspace.json" ] && [ -d "$HOME/dev/agent-workspace/devteam" ]; then
-    echo "  📁 Using legacy workspace-aware agents"
-    AGENT_SCRIPT="agents/run_agent_with_workspace.py"
+# Check for app configuration
+if [ -f "$HOME_DIR/devteam.config.json" ]; then
+    echo "  📁 Found home configuration at: $HOME_DIR"
 else
-    echo "  📦 Using standard agents"
-fi
-
-# Start agents
-echo ""
-echo "🤖 Starting AI Agents..."
-
-if [ "$USE_WORKSPACE_MODE" = true ]; then
-    # Get active agents from workspace config
-    ACTIVE_AGENTS=$(python -c "
-import json
-from pathlib import Path
-config_path = Path('$WORKSPACE_DIR') / 'workspace_config.json'
-if config_path.exists():
-    with open(config_path) as f:
-        config = json.load(f)
-        for role in config.get('active_agents', {}).keys():
-            print(role)
-" 2>/dev/null)
-    
-    if [ -z "$ACTIVE_AGENTS" ]; then
-        echo "  ⚠️  No active agents found in workspace"
-        echo "  Please configure agents through the web interface first"
-    else
-        for role in $ACTIVE_AGENTS; do
-            echo "  Starting $role agent..."
-            python agents/run_workspace_agent.py $role --workspace "$WORKSPACE_DIR" > logs/${role}.log 2>&1 &
-            echo "  ✅ $role agent started"
-            sleep 1
-        done
-    fi
-else
-    # Start all standard agents
-    AGENT_ROLE=BACKEND python $AGENT_SCRIPT > logs/backend.log 2>&1 &
-    echo "  ✅ Backend agent started (port 8301)"
-    sleep 1
-    
-    AGENT_ROLE=FRONTEND python $AGENT_SCRIPT > logs/frontend.log 2>&1 &
-    echo "  ✅ Frontend agent started (port 8302)"
-    sleep 1
-    
-    AGENT_ROLE=DATABASE python $AGENT_SCRIPT > logs/database.log 2>&1 &
-    echo "  ✅ Database agent started (port 8303)"
-    sleep 1
-    
-    AGENT_ROLE=QA python $AGENT_SCRIPT > logs/qa.log 2>&1 &
-    echo "  ✅ QA agent started (port 8304)"
-    sleep 1
-    
-    AGENT_ROLE=BA python $AGENT_SCRIPT > logs/ba.log 2>&1 &
-    echo "  ✅ BA agent started (port 8305)"
-    sleep 1
-    
-    AGENT_ROLE=TEAMLEAD python $AGENT_SCRIPT > logs/teamlead.log 2>&1 &
-    echo "  ✅ Team Lead agent started (port 8306)"
-    sleep 2
+    echo "  ⚠️  No home configuration found"
+    echo "  Please run the web interface to set up DevTeam first"
 fi
 
 # Start tool server
@@ -129,26 +68,8 @@ cd ../..
 echo "  ✅ Web frontend started (port 3000)"
 sleep 3
 
-# Start Telegram bridge if configured
-echo ""
-echo "📱 Checking Telegram configuration..."
-
-HAS_TELEGRAM=false
-if [ "$USE_WORKSPACE_MODE" = true ] && [ -f "$WORKSPACE_DIR/workspace_config.json" ]; then
-    if grep -q '"telegram_bot_token": "[^"]\+' "$WORKSPACE_DIR/workspace_config.json" 2>/dev/null; then
-        HAS_TELEGRAM=true
-    fi
-elif [ -f ".env" ] && grep -q "TELEGRAM_BOT_TOKEN=.\+" .env 2>/dev/null; then
-    HAS_TELEGRAM=true
-fi
-
-if [ "$HAS_TELEGRAM" = true ]; then
-    python start_telegram_bridge.py > logs/telegram_bridge.log 2>&1 &
-    echo "  ✅ Telegram bridge started"
-else
-    echo "  ⚠️  Telegram not configured (skipping)"
-fi
-sleep 2
+# Note: Telegram bridge is now configured and started per-project
+# through the web interface when starting project agents
 
 # Check status
 echo ""
@@ -165,9 +86,13 @@ echo "📊 Access Points:"
 echo "  • Web Dashboard: http://localhost:3000"
 echo "  • API Documentation: http://localhost:8000/docs"
 
-if [ "$USE_WORKSPACE_MODE" = true ]; then
+if [ -f "$HOME_DIR/devteam.config.json" ]; then
     echo ""
-    echo "📁 Workspace: $WORKSPACE_DIR"
+    echo "📁 Home Directory: $HOME_DIR"
+    echo ""
+    echo "💡 To manage projects and agents:"
+    echo "  • Visit http://localhost:3000"
+    echo "  • Select a project to start its agents"
 fi
 
 echo ""

@@ -40,10 +40,35 @@ class TelegramBridge:
         self.settings = settings
         self.registry = AgentRegistry()
         self.application: Optional[Application] = None
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.client = httpx.AsyncClient(timeout=30.0, verify=False)
         
     async def start(self) -> None:
-        self.application = Application.builder().token(self.settings.bot_token).build()
+        # Create httpx client without SSL verification for development
+        from telegram.request import HTTPXRequest
+        import warnings
+        import urllib3
+        
+        # Disable SSL warnings
+        warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # Create HTTPXRequest with SSL disabled
+        request = HTTPXRequest(
+            http_version="1.1",
+            connection_pool_size=8
+        )
+        
+        # Monkey patch the httpx client to disable SSL
+        import httpx
+        original_client = httpx.AsyncClient
+        
+        def patched_client(*args, **kwargs):
+            kwargs['verify'] = False
+            return original_client(*args, **kwargs)
+        
+        httpx.AsyncClient = patched_client
+        
+        self.application = Application.builder().token(self.settings.bot_token).request(request).build()
         
         # Command handlers
         self.application.add_handler(CommandHandler("start", self._handle_start))

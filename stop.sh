@@ -7,8 +7,8 @@ echo "==================================="
 # Kill processes on all known ports
 echo ""
 echo "📡 Stopping services by port..."
-ports=(8301 8302 8303 8304 8305 8306 8000 3000 8500)
-services=("Backend Agent" "Frontend Agent" "Database Agent" "QA Agent" "BA Agent" "Team Lead" "Web Backend" "Web Frontend" "Tool Server")
+ports=(8301 8302 8303 8304 8305 8306 8000 3000 8500 8400)
+services=("Backend Agent" "Frontend Agent" "Database Agent" "QA Agent" "BA Agent" "Team Lead" "Web Backend" "Web Frontend" "Tool Server" "Telegram Bridge")
 
 for i in ${!ports[@]}; do
     port=${ports[$i]}
@@ -28,6 +28,7 @@ echo "  Stopping agent runners..."
 pkill -f "python agents/run_agent.py" 2>/dev/null || true
 pkill -f "python agents/run_agent_with_workspace.py" 2>/dev/null || true
 pkill -f "python agents/run_workspace_agent.py" 2>/dev/null || true
+pkill -f "python agents/run_project_agent.py" 2>/dev/null || true
 pkill -f "run_agent" 2>/dev/null || true
 
 # Web services
@@ -40,6 +41,7 @@ pkill -f "node.*vite" 2>/dev/null || true
 # Infrastructure services
 echo "  Stopping infrastructure services..."
 pkill -f "start_telegram_bridge.py" 2>/dev/null || true
+pkill -f "start_project_bridge.py" 2>/dev/null || true
 pkill -f "tool_server.py" 2>/dev/null || true
 pkill -f "python check_status.py" 2>/dev/null || true
 pkill -f "python start_all.py" 2>/dev/null || true
@@ -76,6 +78,14 @@ else
     echo ""
     echo "  ⚠️  Some services may still be running"
     echo "  Run this script again or manually kill the processes"
+fi
+
+# Clean up PID tracking file
+HOME_DIR="${DEVTEAM_HOME:-$HOME/devteam-home}"
+if [ -f "$HOME_DIR/.agent_pids.json" ]; then
+    echo ""
+    echo "🧹 Cleaning up PID tracking file..."
+    rm -f "$HOME_DIR/.agent_pids.json"
 fi
 
 echo ""

@@ -1,5 +1,5 @@
-import React from 'react'
-import { Link as RouterLink, useLocation } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom'
 import {
   AppBar,
   Box,
@@ -11,32 +11,69 @@ import {
   ListItemText,
   Toolbar,
   Typography,
+  Divider,
+  Chip,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
+  Folder as FolderIcon,
   People as PeopleIcon,
   Assignment as AssignmentIcon,
   Code as CodeIcon,
   Settings as SettingsIcon,
   Menu as MenuIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material'
+import api from '../services/api'
 
 const drawerWidth = 240
-
-const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  { text: 'Agents', icon: <PeopleIcon />, path: '/agents' },
-  { text: 'Tasks', icon: <AssignmentIcon />, path: '/tasks' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-]
 
 interface LayoutProps {
   children: React.ReactNode
 }
 
+interface ProjectInfo {
+  id: string
+  name: string
+}
+
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
-  const [mobileOpen, setMobileOpen] = React.useState(false)
+  const params = useParams()
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [currentProject, setCurrentProject] = useState<ProjectInfo | null>(null)
+  
+  // Detect if we're in a project context
+  const projectId = params.projectId || null
+  const isInProjectContext = location.pathname.includes('/projects/') && projectId
+  
+  useEffect(() => {
+    if (projectId) {
+      loadProjectInfo(projectId)
+    } else {
+      setCurrentProject(null)
+    }
+  }, [projectId])
+  
+  const loadProjectInfo = async (id: string) => {
+    try {
+      const response = await api.get(`/app/projects/${id}`)
+      setCurrentProject({ id, name: response.data.name })
+    } catch (error) {
+      console.error('Failed to load project info:', error)
+    }
+  }
+  
+  const globalMenuItems = [
+    { text: 'Projects', icon: <FolderIcon />, path: '/projects' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+  ]
+  
+  const projectMenuItems = [
+    { text: 'Overview', icon: <DashboardIcon />, path: `/projects/${projectId}` },
+    { text: 'Agents', icon: <PeopleIcon />, path: `/projects/${projectId}/agents` },
+    { text: 'Tasks', icon: <AssignmentIcon />, path: `/projects/${projectId}/tasks` },
+  ]
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -49,15 +86,31 @@ export default function Layout({ children }: LayoutProps) {
           DevTeam
         </Typography>
       </Toolbar>
+      
+      {currentProject && (
+        <>
+          <Box sx={{ px: 2, py: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Current Project
+            </Typography>
+            <Typography variant="subtitle1" noWrap>
+              {currentProject.name}
+            </Typography>
+          </Box>
+          <Divider />
+        </>
+      )}
+      
       <List>
-        {menuItems.map((item) => (
+        {/* Global Menu Items */}
+        {globalMenuItems.map((item) => (
           <ListItem
             key={item.text}
             component={RouterLink}
             to={item.path}
             selected={location.pathname === item.path}
             sx={{
-              backgroundColor: location.pathname === item.path ? '#ffffff' : 'transparent',
+              backgroundColor: location.pathname === item.path ? '#e3f2fd' : 'transparent',
               '&:hover': {
                 backgroundColor: '#f5f5f5',
               },
@@ -73,6 +126,41 @@ export default function Layout({ children }: LayoutProps) {
             <ListItemText primary={item.text} />
           </ListItem>
         ))}
+        
+        {/* Project-specific Menu Items */}
+        {isInProjectContext && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <ListItem>
+              <Typography variant="caption" color="text.secondary">
+                Project Menu
+              </Typography>
+            </ListItem>
+            {projectMenuItems.map((item) => (
+              <ListItem
+                key={item.text}
+                component={RouterLink}
+                to={item.path}
+                selected={location.pathname === item.path}
+                sx={{
+                  backgroundColor: location.pathname === item.path ? '#e3f2fd' : 'transparent',
+                  '&:hover': {
+                    backgroundColor: '#f5f5f5',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: location.pathname === item.path ? '#1976d2' : '#757575',
+                  },
+                  '& .MuiListItemText-primary': {
+                    color: location.pathname === item.path ? '#1976d2' : '#424242',
+                  },
+                }}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItem>
+            ))}
+          </>
+        )}
       </List>
     </div>
   )
@@ -97,7 +185,7 @@ export default function Layout({ children }: LayoutProps) {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Claude Multi-Agent Development System
+            {currentProject ? `DevTeam - ${currentProject.name}` : 'DevTeam - Multi-Agent Development System'}
           </Typography>
         </Toolbar>
       </AppBar>

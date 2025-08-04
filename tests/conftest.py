@@ -156,7 +156,10 @@ def mock_github():
         issue.number = 1
         issue.title = "Test issue"
         issue.body = "Test description"
-        issue.labels = [Mock(name="role:backend")]
+        # Create proper label mock
+        label = Mock()
+        label.name = "role:backend"
+        issue.labels = [label]
         issue.assignee = None
         issue.state = "open"
         issue.created_at = issue.updated_at = datetime.now()

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import logging
+import os
 
 from core.workspace_config import WorkspaceConfig, GitConfig, TokenConfig
 from core.workspace_manager import WorkspaceManager
@@ -48,6 +49,52 @@ class RoleTemplateInfo(BaseModel):
     role: str
     source: str  # "system" or "project"
     has_template: bool
+
+
+@router.post("/check-directory")
+async def check_directory(path: str = Body(...)) -> Dict[str, Any]:
+    """Check if a directory exists and is writable"""
+    try:
+        directory = Path(path)
+        exists = directory.exists()
+        is_dir = directory.is_dir() if exists else False
+        
+        # Try to check if writable by creating parent dirs
+        if not exists:
+            try:
+                # Check if parent directory is writable
+                parent = directory.parent
+                if parent.exists():
+                    # Can we write to parent?
+                    test_file = parent / f".devteam_test_{os.getpid()}"
+                    try:
+                        test_file.touch()
+                        test_file.unlink()
+                        writable = True
+                    except:
+                        writable = False
+                else:
+                    writable = False
+            except:
+                writable = False
+        else:
+            writable = os.access(str(directory), os.W_OK)
+        
+        return {
+            "exists": exists,
+            "is_directory": is_dir,
+            "writable": writable,
+            "path": str(directory),
+            "parent": str(directory.parent),
+            "suggestion": str(directory) if not exists else None
+        }
+    except Exception as e:
+        return {
+            "exists": False,
+            "is_directory": False,
+            "writable": False,
+            "error": str(e)
+        }
 
 
 @router.get("/status")

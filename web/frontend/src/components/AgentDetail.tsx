@@ -21,12 +21,10 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Alert,
   CircularProgress,
   Card,
   CardContent,
   Grid,
-  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -114,14 +112,14 @@ export const AgentDetail: React.FC = () => {
       setLoading(true);
       
       // Load agent info from project
-      const projectResponse = await appService.getProject(projectId);
-      const agentInfo = projectResponse.data.agents[agentId];
+      const projectResponse = await appService.getProject(projectId!);
+      const agentInfo = projectResponse.data.agents[agentId!];
       if (agentInfo) {
-        setAgent({ id: agentId, ...agentInfo });
+        setAgent({ id: agentId!, ...agentInfo });
       }
       
       // Load agent configuration
-      const configResponse = await appService.getAgentConfig(projectId, agentId);
+      const configResponse = await appService.getAgentConfig(projectId!, agentId!);
       setConfig(configResponse.data);
       setOriginalConfig(JSON.parse(JSON.stringify(configResponse.data)));
       
@@ -170,7 +168,7 @@ export const AgentDetail: React.FC = () => {
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
     if (newValue === 3 && history.length === 0) {
       loadHistory();

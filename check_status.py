@@ -20,23 +20,6 @@ def check_service(name, url):
 print("🔍 DevTeam Status Check")
 print("=" * 50)
 
-# Check agents
-agents = [
-    ("Backend Agent", "http://localhost:8301/"),
-    ("Frontend Agent", "http://localhost:8302/"),
-    ("Database Agent", "http://localhost:8303/"),
-    ("QA Agent", "http://localhost:8304/"),
-    ("BA Agent", "http://localhost:8305/"),
-    ("Team Lead Agent", "http://localhost:8306/"),
-]
-
-print("\n📡 Agent Services:")
-for name, url in agents:
-    status, data = check_service(name, url)
-    print(f"  {status}")
-    if data and isinstance(data, dict):
-        print(f"     Role: {data.get('agent', 'unknown')}")
-
 # Check web services
 print("\n🌐 Web Services:")
 web_status, _ = check_service("Web Backend API", "http://localhost:8000/docs")
@@ -49,8 +32,12 @@ print(f"  {frontend_status}")
 if "Running" in frontend_status:
     print(f"     Dashboard: http://localhost:3000")
 
+# Check tool server
+print("\n🔧 Tool Services:")
+tool_status, _ = check_service("Tool Server", "http://localhost:8500/status")
+print(f"  {tool_status}")
+
 print("\n💡 Tips:")
-print("  - If agents are not running, use: python start_all.py")
 print("  - Access the web dashboard at: http://localhost:3000")
-print("  - Use Telegram to interact with agents")
+print("  - Projects and agents are managed through the web interface")
 print("  - Check logs in: ./logs/")

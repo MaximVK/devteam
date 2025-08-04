@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.settings import settings
-from core.orchestrator import Orchestrator
+from core.orchestrator import AgentOrchestrator
 
 def wait_for_agent(port: int, max_retries: int = 30):
     """Wait for an agent to become available"""

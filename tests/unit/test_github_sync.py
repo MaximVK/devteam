@@ -57,7 +57,8 @@ class TestGitHubSync:
     @pytest.mark.asyncio
     async def test_get_tasks_for_role_error(self, github_sync, mock_github):
         """Test error handling when fetching tasks"""
-        mock_github[1].get_issues.side_effect = Exception("API Error")
+        from github import GithubException
+        mock_github[1].get_issues.side_effect = GithubException(404, "Not found")
         
         tasks = await github_sync.get_tasks_for_role("backend")
         
@@ -85,7 +86,8 @@ class TestGitHubSync:
     @pytest.mark.asyncio
     async def test_create_issue_error(self, github_sync, mock_github):
         """Test error handling when creating issue"""
-        mock_github[1].create_issue.side_effect = Exception("API Error")
+        from github import GithubException
+        mock_github[1].create_issue.side_effect = GithubException(500, "Server error")
         
         issue_number = await github_sync.create_issue(
             title="Test",
@@ -242,16 +244,17 @@ class TestGitHubSync:
     @pytest.mark.asyncio
     async def test_error_handling(self, github_sync, mock_github):
         """Test comprehensive error handling"""
+        from github import GithubException
         # Test various API errors
-        mock_github[1].get_issue.side_effect = Exception("API Error")
+        mock_github[1].get_issue.side_effect = GithubException(404, "Not found")
         
         success = await github_sync.update_issue_status(1, "closed")
         assert success is False
         
-        mock_github[1].create_pull.side_effect = Exception("API Error")
+        mock_github[1].create_pull.side_effect = GithubException(500, "Server error")
         pr = await github_sync.create_pull_request("Test", "Test", "test")
         assert pr is None
         
-        mock_github[1].get_pull.side_effect = Exception("API Error")
+        mock_github[1].get_pull.side_effect = GithubException(404, "Not found")
         comments = await github_sync.get_pr_comments(1)
         assert comments == []

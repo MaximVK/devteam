@@ -12,9 +12,13 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  Chip
+  Chip,
+  InputAdornment
 } from '@mui/material';
-import { api } from '../services/api';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import ErrorIcon from '@mui/icons-material/Error';
+import api from '../services/api';
 
 interface WorkspaceStatus {
   initialized: boolean;
@@ -39,8 +43,10 @@ interface SetupFormData {
 export const WorkspaceSetup: React.FC = () => {
   const [status, setStatus] = useState<WorkspaceStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [directoryStatus, setDirectoryStatus] = useState<any>(null);
+  const [checkingDirectory, setCheckingDirectory] = useState(false);
   const [setupForm, setSetupForm] = useState<SetupFormData>({
-    working_folder: `${process.env.HOME || '/home/user'}/devteam-workspace`,
+    working_folder: `/Users/${window.location.hostname === 'localhost' ? 'maxim' : 'user'}/devteam-workspace`,
     repository_url: '',
     base_branch: 'main-agents',
     anthropic_api_key: '',
@@ -88,12 +94,70 @@ export const WorkspaceSetup: React.FC = () => {
     }
   };
 
+  const getDirectoryStatusIcon = () => {
+    if (checkingDirectory) {
+      return <CircularProgress size={20} />;
+    }
+    
+    if (!directoryStatus) {
+      return null;
+    }
+    
+    if (directoryStatus.exists && directoryStatus.is_directory && directoryStatus.writable) {
+      return <CheckCircleIcon color="success" />;
+    } else if (!directoryStatus.exists && directoryStatus.writable) {
+      return <WarningIcon color="warning" />;
+    } else {
+      return <ErrorIcon color="error" />;
+    }
+  };
+
+  const getDirectoryStatusMessage = () => {
+    if (!directoryStatus || checkingDirectory) {
+      return null;
+    }
+    
+    if (directoryStatus.exists && directoryStatus.is_directory && directoryStatus.writable) {
+      return <Typography variant="caption" color="success.main">Directory exists and is writable</Typography>;
+    } else if (!directoryStatus.exists && directoryStatus.writable) {
+      return <Typography variant="caption" color="warning.main">Directory will be created</Typography>;
+    } else if (!directoryStatus.writable) {
+      return <Typography variant="caption" color="error.main">No write permission</Typography>;
+    } else if (directoryStatus.exists && !directoryStatus.is_directory) {
+      return <Typography variant="caption" color="error.main">Path exists but is not a directory</Typography>;
+    }
+    
+    return null;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSetupForm(prev => ({
       ...prev,
       [name]: value
     }));
+    
+    // Check directory when working_folder changes
+    if (name === 'working_folder' && value) {
+      checkDirectory(value);
+    }
+  };
+
+  const checkDirectory = async (path: string) => {
+    if (!path || path.length < 3) {
+      setDirectoryStatus(null);
+      return;
+    }
+    
+    setCheckingDirectory(true);
+    try {
+      const response = await api.post('/workspace/check-directory', path);
+      setDirectoryStatus(response.data);
+    } catch (error) {
+      setDirectoryStatus(null);
+    } finally {
+      setCheckingDirectory(false);
+    }
   };
 
   if (loading) {
@@ -175,8 +239,61 @@ export const WorkspaceSetup: React.FC = () => {
                 value={setupForm.working_folder}
                 onChange={handleInputChange}
                 required
-                helperText="Base directory for all workspaces"
+                helperText={getDirectoryStatusMessage() || "Base directory for all workspaces. Common locations are shown below."}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {getDirectoryStatusIcon()}
+                    </InputAdornment>
+                  )
+                }}
               />
+              <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const path = `/Users/${window.location.hostname === 'localhost' ? 'maxim' : 'user'}/devteam-workspace`;
+                    setSetupForm(prev => ({ ...prev, working_folder: path }));
+                    checkDirectory(path);
+                  }}
+                >
+                  Home Directory
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const path = `/Users/${window.location.hostname === 'localhost' ? 'maxim' : 'user'}/Documents/devteam-workspace`;
+                    setSetupForm(prev => ({ ...prev, working_folder: path }));
+                    checkDirectory(path);
+                  }}
+                >
+                  Documents
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const path = `/Users/${window.location.hostname === 'localhost' ? 'maxim' : 'user'}/Desktop/devteam-workspace`;
+                    setSetupForm(prev => ({ ...prev, working_folder: path }));
+                    checkDirectory(path);
+                  }}
+                >
+                  Desktop
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const path = `/tmp/devteam-workspace`;
+                    setSetupForm(prev => ({ ...prev, working_folder: path }));
+                    checkDirectory(path);
+                  }}
+                >
+                  Temp Directory
+                </Button>
+              </Box>
             </Grid>
 
             <Grid item xs={12}>
@@ -297,7 +414,7 @@ export const WorkspaceSetup: React.FC = () => {
                 variant="contained"
                 size="large"
                 fullWidth
-                disabled={loading}
+                disabled={loading || (directoryStatus && !directoryStatus.writable)}
               >
                 {loading ? 'Initializing...' : 'Initialize Workspace'}
               </Button>

@@ -322,9 +322,18 @@ async def get_all_agents_conversation_summary():
 @app.get("/api/app/projects/{project_id}/agents/{agent_id}/config")
 async def get_agent_config(project_id: str, agent_id: str):
     """Get configuration for a specific agent"""
-    project_config = agent_manager._load_project_config(project_id)
-    if not project_config:
+    # Load project config
+    if not agent_manager or project_id not in agent_manager.app_config.projects:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    project_info = agent_manager.app_config.projects[project_id]
+    project_path = agent_manager.app_config.home_directory / project_info.path
+    
+    from core.project_config import ProjectConfig
+    project_config = ProjectConfig.load(project_path)
+    
+    if not project_config:
+        raise HTTPException(status_code=404, detail="Project configuration not found")
     
     if agent_id not in project_config.active_agents:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -336,9 +345,18 @@ async def get_agent_config(project_id: str, agent_id: str):
 @app.put("/api/app/projects/{project_id}/agents/{agent_id}/config")
 async def update_agent_config(project_id: str, agent_id: str, config_data: Dict[str, Any]):
     """Update configuration for a specific agent"""
-    project_config = agent_manager._load_project_config(project_id)
-    if not project_config:
+    # Load project config
+    if not agent_manager or project_id not in agent_manager.app_config.projects:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    project_info = agent_manager.app_config.projects[project_id]
+    project_path = agent_manager.app_config.home_directory / project_info.path
+    
+    from core.project_config import ProjectConfig
+    project_config = ProjectConfig.load(project_path)
+    
+    if not project_config:
+        raise HTTPException(status_code=404, detail="Project configuration not found")
     
     if agent_id not in project_config.active_agents:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -362,6 +380,9 @@ async def update_agent_config(project_id: str, agent_id: str, config_data: Dict[
 @app.get("/api/app/projects/{project_id}/agents/{agent_id}/logs")
 async def get_project_agent_logs(project_id: str, agent_id: str, lines: int = 100):
     """Get logs for a specific agent in a project"""
+    if not agent_manager:
+        raise HTTPException(status_code=500, detail="Agent manager not initialized")
+        
     log_file = agent_manager.app_config.home_directory / "logs" / f"{project_id}_{agent_id}.log"
     
     if not log_file.exists():
@@ -380,6 +401,9 @@ async def get_project_agent_logs(project_id: str, agent_id: str, lines: int = 10
 @app.get("/api/app/projects/{project_id}/agents/{agent_id}/commands")
 async def get_agent_commands(project_id: str, agent_id: str, limit: int = 50):
     """Get recent commands executed by the agent"""
+    if not agent_manager:
+        raise HTTPException(status_code=500, detail="Agent manager not initialized")
+        
     command_log = agent_manager.app_config.home_directory / "logs" / "agent_commands.log"
     
     if not command_log.exists():
